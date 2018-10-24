@@ -686,15 +686,15 @@
                     "properties" : {
                         "counter" : {
                             "type" : "integer",
-                            "default" : 5
+                            "default" : 10
                         },
                         "rate" : {
                             "type" : "integer",
-                            "default" : 150
+                            "default" : 0
                         },
                         "max_size" : {
                             "type" : "integer",
-                            "default" : 100
+                            "default" : 250
                         },
                         "max_time" : {
                             "type" : "integer",
@@ -713,7 +713,7 @@
                         },
                         "rate" : {
                             "type" : "integer",
-                            "default" : 200
+                            "default" : 0
                         },
                         "max_size" : {
                             "type" : "integer",
