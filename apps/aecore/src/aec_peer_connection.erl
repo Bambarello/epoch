@@ -329,27 +329,34 @@ handle_info({connected, Pid, {ok, TcpSock}}, S0 = #{ status := {connecting, Pid}
 handle_info({noise, _, <<?MSG_FRAGMENT:16, N:16, M:16, Fragment/binary>>}, S) ->
     handle_fragment(S, N, M, Fragment);
 handle_info({noise, _, <<Type:16, Payload/binary>>}, S) ->
-    case aec_peer_messages:deserialize(Type, Payload) of
-        {response, _Vsn, #{ result := false, type := MsgType, reason := Reason }} ->
-            {noreply, handle_msg(S, MsgType, true, {error, Reason})};
-        {response, _Vsn, #{ result := true, type := MsgType, msg := {MsgType, Vsn, Msg} }} ->
-            {noreply, handle_msg(S, MsgType, true, {ok, Vsn, Msg})};
-        {close, _Vsn, _Msg} ->
-            case S of
-                #{ status := {disconnecting, _} } ->
-                    {stop, normal, S};
-                #{ status := {connected, ESock} } ->
-                    aec_peers:connection_closed(peer_id(S), self()),
-                    epoch_sync:debug("Connection closed by the other side ~p",
-                                     [maps:get(host, S)]),
-                    enoise:close(ESock),
-                    {stop, normal, S}
-            end;
-        {MsgType, Vsn, Msg} ->
-            {noreply, handle_msg(S, MsgType, false, {ok, Vsn, Msg})};
-        Err = {error, _} ->
-            epoch_sync:info("Could not deserialize message ~p", [Err]),
-            {noreply, S}
+    {message_queue_len, X} = process_info(self(), message_queue_len),
+    case 500 + rand:uniform(500) of
+        N when X > N ->
+            epoch_sync:info("Overloaded peer_connection ~p with ~p msgs", [peer_id(S), N]),
+            {stop, overload, S};
+        _ ->
+            case aec_peer_messages:deserialize(Type, Payload) of
+                {response, _Vsn, #{ result := false, type := MsgType, reason := Reason }} ->
+                    {noreply, handle_msg(S, MsgType, true, {error, Reason})};
+                {response, _Vsn, #{ result := true, type := MsgType, msg := {MsgType, Vsn, Msg} }} ->
+                    {noreply, handle_msg(S, MsgType, true, {ok, Vsn, Msg})};
+                {close, _Vsn, _Msg} ->
+                    case S of
+                        #{ status := {disconnecting, _} } ->
+                            {stop, normal, S};
+                        #{ status := {connected, ESock} } ->
+                            aec_peers:connection_closed(peer_id(S), self()),
+                            epoch_sync:debug("Connection closed by the other side ~p",
+                                             [maps:get(host, S)]),
+                            enoise:close(ESock),
+                            {stop, normal, S}
+                    end;
+                {MsgType, Vsn, Msg} ->
+                    {noreply, handle_msg(S, MsgType, false, {ok, Vsn, Msg})};
+                Err = {error, _} ->
+                    epoch_sync:info("Could not deserialize message ~p", [Err]),
+                    {noreply, S}
+            end
     end;
 handle_info({enoise_error, _, Reason}, S) ->
     epoch_sync:debug("Peer connection got enoise_error: ~p", [Reason]),
