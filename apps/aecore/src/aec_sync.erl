@@ -212,8 +212,8 @@ handle_info({gproc_ps_event, Event, #{info := Info}},
         tx_created when GossipTxs ->
             enqueue(tx, Info, PeerIds);
         tx_received when GossipTxs ->
-            enqueue(tx, Info, PeerIds);
-        _             -> ignore
+            enqueue(tx, Info, [ aec_peers:peer_id(P) || P <- aec_peers:connected_peers(outbound) ]);
+        _ -> ignore
     end,
     {noreply, State};
 handle_info({'EXIT', Pid, Reason}, State) ->
